@@ -50,10 +50,20 @@ const useQueryPrettiier = (queryRegExp?: RegExp) => {
   const undoHistory: InputNode[][] = [];
   const redoHistory: InputNode[][] = [];
 
-  const inputNodes = ref<InputNode[]>([
-    { type: "query", queryType: "tag", value: "#tagName" },
-    { type: "text", value: " normal text with leading space" }
-  ]);
+  const inputNodes = ref<InputNode[]>([{ type: "text", value: "" }]);
+
+  const makeAdjustCursor = (targetIndex: number, targetOffset: number) => (
+    adjust = 0
+  ) => {
+    nextTick(() => {
+      // adjust selection
+      const node =
+        document.querySelector(
+          `.${dataClassName} [data-index='${targetIndex}']`
+        )?.firstChild ?? null;
+      getSelection()?.collapse(node, targetOffset + adjust);
+    });
+  };
 
   const onBeforeInput = (event: InputEvent) => {
     console.log(event.inputType);
@@ -104,22 +114,13 @@ const useQueryPrettiier = (queryRegExp?: RegExp) => {
       inputNodes.value[leadingIndex].value.substring(0, leadingOffset) +
       inputNodes.value[trailingIndex].value.substring(trailingOffset);
 
-    // collapse array
+    // collapse array if trailing and leading index are different
     inputNodes.value.splice(leadingIndex + 1, trailingIndex - leadingIndex);
     targetIndex = leadingIndex;
 
     const targetNode = inputNodes.value[targetIndex];
 
-    const adjustCursor = (adjust = 0) => {
-      nextTick(() => {
-        // adjust selection
-        const node =
-          document.querySelector(
-            `.${dataClassName} [data-index='${targetIndex}']`
-          )?.firstChild ?? null;
-        getSelection()?.collapse(node, leadingOffset + adjust);
-      });
-    };
+    const adjustCursor = makeAdjustCursor(targetIndex, leadingOffset);
 
     if (
       event.inputType === "insertText" ||
@@ -178,16 +179,7 @@ const useQueryPrettiier = (queryRegExp?: RegExp) => {
       selection?.anchorNode?.parentElement?.dataset["index"] ?? "0"
     );
 
-    const adjustCursor = () => {
-      nextTick(() => {
-        // adjust selection
-        const node =
-          document.querySelector(
-            `.${dataClassName} [data-index='${anchorElementIndex}']`
-          )?.firstChild ?? null;
-        getSelection()?.collapse(node, anchorOffset - 1);
-      });
-    };
+    const adjustCursor = makeAdjustCursor(anchorElementIndex, anchorOffset - 1);
 
     if (event.metaKey && !event.shiftKey && event.key === "z") {
       // undo
